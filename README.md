@@ -1,28 +1,40 @@
 # Lector de notificaciones bancarias
 
-App Android para detectar notificaciones entrantes de **Yape** o **BCP Bolivia**, extraer nombre y monto, y hacer un `POST` a una API.
+App Android para detectar notificaciones entrantes de **Yape** o **BCP Bolivia**, extraer el nombre y monto, y enviarlos a un servidor.
 
 ## Compilación
 
-Al subir cambios a `main`, GitHub Actions compila el APK debug y ejecuta pruebas del parser. Descarga `app-debug.apk` desde **Actions → Android APK → Artifacts**. También se puede iniciar manualmente desde la pestaña Actions.
+Cada push a `main` compila el APK debug y ejecuta las pruebas del parser. Descarga el artefacto desde **Actions → Android APK → Artifacts**.
 
-## Instalación y configuración
+## Instalación
 
-1. Instala el APK en Android.
-2. Selecciona Yape o BCP Bolivia; configura la URL HTTPS, usuario y contraseña de API.
-3. Pulsa Guardar configuración.
-4. Activa el acceso a notificaciones en Ajustes de Android.
-5. Para mejorar la continuidad, permite actividad en segundo plano y excluye la app de optimización de batería si el fabricante ofrece esa opción.
+1. Instala el APK en un teléfono o emulador Android.
+2. Selecciona Yape o BCP Bolivia y el método de envío.
+3. Completa los campos de la opción elegida y pulsa **Guardar configuración**.
+4. Pulsa **Activar acceso a notificaciones** y habilita el lector en Ajustes de Android.
+5. Para mejorar la continuidad, excluye la app de optimización de batería si el fabricante ofrece esa opción.
 
-Android o el fabricante pueden pausar procesos por ahorro de batería; ninguna app estándar puede garantizar que nunca se detenga. Si se revoca el acceso a notificaciones, el lector deja de recibir eventos.
+Android o el fabricante pueden pausar procesos por ahorro de batería; ninguna app estándar puede garantizar que nunca se detenga. Si se revoca el acceso, el lector deja de recibir notificaciones.
 
-## Datos enviados
+## Método: API HTTPS
 
-El parser se basa en los ejemplos facilitados:
+Configura URL, usuario y contraseña. El cuerpo JSON es `{"user":"...","amount":1.00}` y las credenciales se envían como HTTP Basic Auth. Se envía `Idempotency-Key`; el servidor debe respetarla para evitar duplicados si la respuesta se pierde.
+
+## Método: SignalR
+
+Configura:
+
+- URL HTTPS completa del Hub, incluida su ruta (por ejemplo, `https://servidor.com/hubs/pagos`).
+- Nombre del método del Hub. El valor inicial es `RegistrarAvisoPago`, editable.
+- Autenticación del Hub: usuario/contraseña Basic, token Bearer o ninguna.
+
+El lector invoca el método con **dos argumentos**, en este orden: `user` (nombre detectado) y `amount` (monto numérico). El servidor debe exponer una firma compatible, por ejemplo `RegistrarAvisoPago(string user, decimal amount)`. La app espera la confirmación del Hub y hace hasta tres intentos si falla. También manda `Idempotency-Key` como encabezado de conexión; si el servidor quiere impedir duplicados tras un corte ambiguo, debe leerlo y guardar las claves ya procesadas.
+
+El cliente Java de SignalR usa WebSockets; el Hub y cualquier proxy deben admitir WebSockets. Con Basic, el servidor debe aceptar `Authorization: Basic` durante la conexión; con Bearer, debe validar el token. Contraseñas y tokens quedan cifrados en Android Keystore. No se registra el texto de las notificaciones en logs.
+
+## Patrones iniciales
 
 - Yape: `QR DE JOHN OLIV te envió Bs. 1.00`
 - BCP: `Recibiste un pago QR por Bs. 1950.00 de ANEZ MERLIN RANDY`
 
-El cuerpo JSON es `{"user":"...","amount":1.00}`. Las credenciales se envían mediante HTTP Basic Auth, solo por HTTPS. La contraseña queda cifrada en el dispositivo con Android Keystore. No se registra el texto de las notificaciones en logs. Se envía `Idempotency-Key`; la API debe respetarla para evitar duplicados si la respuesta se pierde.
-
-El manifiesto consulta nombres de aplicaciones instaladas para reconocer Yape/BCP. Para publicar en Google Play, el permiso `QUERY_ALL_PACKAGES` requiere justificar el uso según sus políticas. Los mensajes bancarios pueden cambiar; notificaciones no reconocidas se ignoran.
+Los textos o etiquetas de las apps bancarias pueden cambiar; los mensajes que no coincidan se ignoran. El manifiesto consulta etiquetas de apps instaladas para reconocer Yape/BCP; publicar en Google Play requeriría justificar `QUERY_ALL_PACKAGES` según sus políticas.

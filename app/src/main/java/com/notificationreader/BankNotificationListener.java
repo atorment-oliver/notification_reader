@@ -5,6 +5,10 @@ import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
 import android.os.Bundle;
 import android.util.Base64;
+import com.microsoft.signalr.HubConnection;
+import com.microsoft.signalr.HubConnectionBuilder;
+import com.microsoft.signalr.TransportEnum;
+import io.reactivex.Single;
 import org.json.JSONObject;
 import java.io.OutputStream;
 import java.net.URL;
@@ -37,13 +41,25 @@ public class BankNotificationListener extends NotificationListenerService {
         NotificationParser.Payment payment = NotificationParser.parse(bank, title, body);
         if (payment == null) return;
         String key = sbn.getPackageName() + ":" + sbn.getId() + ":" + String.valueOf(sbn.getTag()) + ":" + sbn.getPostTime();
-        if (!rememberIfNew(key)) return;
-        String endpoint = store.url(), apiUser = store.user(), apiPassword = store.password();
-        if (endpoint.isEmpty() || apiUser.isEmpty() || apiPassword.isEmpty()) { store.status("Pago detectado, pero falta completar la configuración de la API."); return; }
-        store.status("Pago detectado; enviando a la API…");
+        String deliveryMode = store.mode();
         final String sender = payment.user, stableKey = key;
         final java.math.BigDecimal amount = payment.amount;
-        executor.execute(() -> sendWithRetry(endpoint, apiUser, apiPassword, sender, amount, stableKey));
+        if ("SIGNALR".equals(deliveryMode)) {
+            String hubUrl = store.hubUrl(), method = store.hubMethod(), auth = store.hubAuth();
+            String hubUser = store.hubUser(), hubSecret = store.hubSecret();
+            if (hubUrl.isEmpty() || method.isEmpty() || ("BASIC".equals(auth) && (hubUser.isEmpty() || hubSecret.isEmpty())) || ("BEARER".equals(auth) && hubSecret.isEmpty())) {
+                store.status("Pago detectado, pero falta completar la configuración SignalR."); return;
+            }
+            if (!rememberIfNew(key)) return;
+            store.status("Pago detectado; conectando con SignalR…");
+            executor.execute(() -> sendSignalRWithRetry(hubUrl, method, auth, hubUser, hubSecret, sender, amount, key));
+        } else {
+            String endpoint = store.apiUrl(), apiUser = store.apiUser(), apiPassword = store.apiPassword();
+            if (endpoint.isEmpty() || apiUser.isEmpty() || apiPassword.isEmpty()) { store.status("Pago detectado, pero falta completar la configuración de la API."); return; }
+            if (!rememberIfNew(key)) return;
+            store.status("Pago detectado; enviando a la API…");
+            executor.execute(() -> sendWithRetry(endpoint, apiUser, apiPassword, sender, amount, stableKey));
+        }
     }
 
     private String appLabel(String pkg) {
@@ -89,6 +105,35 @@ public class BankNotificationListener extends NotificationListenerService {
             if (attempt < 2) try { Thread.sleep(1000L << attempt); } catch (InterruptedException e) { Thread.currentThread().interrupt(); return; }
         }
         store.status("No se pudo enviar después de 3 intentos. Una nueva notificación podrá reintentarlo.");
+    }
+
+    private void sendSignalRWithRetry(String endpoint, String method, String auth, String username, String secret, String sender, java.math.BigDecimal amount, String key) {
+        for (int attempt = 0; attempt < 3; attempt++) {
+            HubConnection hub = null;
+            try {
+                com.microsoft.signalr.HttpHubConnectionBuilder builder = HubConnectionBuilder.create(endpoint)
+                        .withTransport(TransportEnum.WEBSOCKETS)
+                        .withHeader("Idempotency-Key", sha256(key));
+                if ("BASIC".equals(auth)) {
+                    String credentials = Base64.encodeToString((username + ":" + secret).getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
+                    builder.withHeader("Authorization", "Basic " + credentials);
+                } else if ("BEARER".equals(auth)) {
+                    builder.withAccessTokenProvider(Single.defer(() -> Single.just(secret)));
+                }
+                hub = builder.build();
+                hub.start().blockingAwait();
+                // Contract: the Hub method accepts (string user, decimal amount), in that order.
+                hub.invoke(method, new Object[]{sender, amount}).blockingAwait();
+                store.status("Pago enviado correctamente por SignalR.");
+                return;
+            } catch (Exception e) {
+                store.status("SignalR no confirmó el pago. Se reintentará.");
+            } finally {
+                if (hub != null) try { hub.close(); } catch (Exception ignored) {}
+            }
+            if (attempt < 2) try { Thread.sleep(1000L << attempt); } catch (InterruptedException e) { Thread.currentThread().interrupt(); return; }
+        }
+        store.status("SignalR no pudo enviar después de 3 intentos. Revisa la URL, método y autenticación del Hub.");
     }
     private String sha256(String value) throws Exception {
         byte[] digest = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
