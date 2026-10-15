@@ -8,7 +8,6 @@ import android.util.Base64;
 import com.microsoft.signalr.HubConnection;
 import com.microsoft.signalr.HubConnectionBuilder;
 import com.microsoft.signalr.TransportEnum;
-import io.reactivex.Single;
 import org.json.JSONObject;
 import java.io.OutputStream;
 import java.net.URL;
@@ -118,7 +117,7 @@ public class BankNotificationListener extends NotificationListenerService {
                     String credentials = Base64.encodeToString((username + ":" + secret).getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
                     builder.withHeader("Authorization", "Basic " + credentials);
                 } else if ("BEARER".equals(auth)) {
-                    builder.withAccessTokenProvider(Single.defer(() -> Single.just(secret)));
+                    builder.withAccessTokenProvider(io.reactivex.rxjava3.core.Single.defer(() -> io.reactivex.rxjava3.core.Single.just(secret)));
                 }
                 hub = builder.build();
                 hub.start().blockingAwait();
