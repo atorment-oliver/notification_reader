@@ -34,7 +34,7 @@ public class MainActivity extends Activity {
         TextView intro = new TextView(this); intro.setText("Selecciona la banca y el medio por el que se enviarán los pagos detectados."); intro.setTextSize(15); intro.setPadding(0,dp(8),0,dp(18)); root.addView(intro);
 
         label(root, "Aplicación bancaria");
-        bank = spinner(new String[]{"Yape", "BCP Bolivia"}); root.addView(bank);
+        bank = spinner(new String[]{"Yape", "BCP Bolivia", "Al toque (altoke)"}); root.addView(bank);
         label(root, "Método de envío");
         mode = spinner(new String[]{"API HTTPS (POST)", "SignalR"}); root.addView(mode);
 
@@ -68,7 +68,7 @@ public class MainActivity extends Activity {
     private int dp(int n) { return (int)(n * getResources().getDisplayMetrics().density + .5f); }
 
     private void load() {
-        bank.setSelection("BCP".equals(store.bank()) ? 1 : 0);
+        bank.setSelection("BCP".equals(store.bank()) ? 1 : "ALTOQUE".equals(store.bank()) ? 2 : 0);
         mode.setSelection("SIGNALR".equals(store.mode()) ? 1 : 0);
         apiUrl.setText(store.apiUrl()); apiUser.setText(store.apiUser());
         apiPassword.setHint(store.apiPassword().isEmpty() ? "Contraseña" : "Guardada; escribe solo para cambiarla");
@@ -87,7 +87,7 @@ public class MainActivity extends Activity {
         if (hubUserRow != null) hubUserRow.setVisibility(auth == 0 ? View.VISIBLE : View.GONE);
         if (hubSecretRow != null) hubSecretRow.setVisibility(auth == 2 ? View.GONE : View.VISIBLE);
     }
-    private String bankValue() { return bank.getSelectedItemPosition() == 1 ? "BCP" : "YAPE"; }
+    private String bankValue() { int selected = bank.getSelectedItemPosition(); return selected == 1 ? "BCP" : selected == 2 ? "ALTOQUE" : "YAPE"; }
     private boolean httpsUrl(String value) {
         try { URI u = URI.create(value); return "https".equalsIgnoreCase(u.getScheme()) && u.getHost() != null; }
         catch (Exception e) { return false; }

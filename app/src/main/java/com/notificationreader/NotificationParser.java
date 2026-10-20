@@ -5,18 +5,33 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Extracts the payer and amount from the Yape and BCP Bolivia examples. */
+/** Extracts payer and amount from supported Bolivian payment notifications. */
 public final class NotificationParser {
     private static final Pattern YAPE = Pattern.compile("(?i)QR\\s+DE\\s+(.+?)\\s+te\\s+envió\\s+(?:Bs\\.?\\s*)?([0-9][0-9.,]*)");
     private static final Pattern BCP = Pattern.compile("(?i)por\\s+(?:Bs\\.?\\s*)?([0-9][0-9.,]*)\\s+de\\s+(.+)$");
+    private static final Pattern ALTOQUE = Pattern.compile("(?i)^(.+?)\\s+te\\s+abon[oó]\\s+(?:Bs\\.?\\s*)?([0-9][0-9.,]*)\\s*$");
     private NotificationParser() {}
 
     public static Payment parse(String bank, String title, String body) {
-        String text = ((title == null ? "" : title) + " " + (body == null ? "" : body)).trim();
-        Matcher m = "BCP".equals(bank) ? BCP.matcher(text) : YAPE.matcher(text);
-        if (!m.find()) return null;
-        String name = "BCP".equals(bank) ? m.group(2) : m.group(1);
-        String rawAmount = "BCP".equals(bank) ? m.group(1) : m.group(2);
+        String notificationTitle = title == null ? "" : title.trim();
+        String notificationBody = body == null ? "" : body.trim();
+        Matcher m;
+        String name;
+        String rawAmount;
+        if ("ALTOQUE".equals(bank)) {
+            // altoke uses "Recibiste un pago" as title; payer and amount are in the body.
+            String candidate = notificationBody.isEmpty() ? notificationTitle : notificationBody;
+            m = ALTOQUE.matcher(candidate);
+            if (!m.find()) return null;
+            name = m.group(1);
+            rawAmount = m.group(2);
+        } else {
+            String text = (notificationTitle + " " + notificationBody).trim();
+            m = "BCP".equals(bank) ? BCP.matcher(text) : YAPE.matcher(text);
+            if (!m.find()) return null;
+            name = "BCP".equals(bank) ? m.group(2) : m.group(1);
+            rawAmount = "BCP".equals(bank) ? m.group(1) : m.group(2);
+        }
         BigDecimal amount = parseAmount(rawAmount);
         name = name.trim().replaceAll("\\s+", " ");
         if (name.isEmpty() || amount == null || amount.signum() <= 0) return null;

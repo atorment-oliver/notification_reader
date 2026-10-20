@@ -67,7 +67,9 @@ public class BankNotificationListener extends NotificationListenerService {
     }
     private boolean matchesBank(String selected, String label, String pkg) {
         String haystack = (label + " " + pkg).toLowerCase(java.util.Locale.ROOT);
-        return "BCP".equals(selected) ? haystack.contains("bcp") : haystack.contains("yape");
+        if ("BCP".equals(selected)) return haystack.contains("bcp");
+        if ("ALTOQUE".equals(selected)) return haystack.contains("altoke") || haystack.contains("al toque");
+        return haystack.contains("yape");
     }
     private String text(CharSequence cs) { return cs == null ? "" : cs.toString().trim(); }
 
