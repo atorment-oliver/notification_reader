@@ -16,9 +16,9 @@ Cada push a `main` compila el APK debug y ejecuta las pruebas del parser. Descar
 
 Android o el fabricante pueden pausar procesos por ahorro de batería; ninguna app estándar puede garantizar que nunca se detenga. Si se revoca el acceso, el lector deja de recibir notificaciones.
 
-## Método: API HTTPS
+## Método: API HTTPS o API local del emulador
 
-Configura URL, usuario y contraseña. El cuerpo JSON es `{"user":"...","amount":1.00}` y las credenciales se envían como HTTP Basic Auth. Se envía `Idempotency-Key`; el servidor debe respetarla para evitar duplicados si la respuesta se pierde.
+Configura URL, usuario y contraseña. Para la API local del emulador usa `http://10.0.2.2:5098/api/credits`; el permiso HTTP queda limitado a esa IP y puerto. En servidores remotos usa HTTPS. El cuerpo JSON es `{"user":"...","application":"ALTOQUE","amount":1.00}` y las credenciales se envían como HTTP Basic Auth. Se envía `Idempotency-Key`; el servidor debe respetarla para evitar duplicados si la respuesta se pierde.
 
 ## Método: SignalR
 
