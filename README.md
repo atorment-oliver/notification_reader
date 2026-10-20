@@ -1,6 +1,6 @@
 # Lector de notificaciones bancarias
 
-App Android para detectar notificaciones entrantes de **Yape** o **BCP Bolivia**, extraer el nombre y monto, y enviarlos a un servidor.
+App Android para detectar notificaciones de **Al toque**, **Yape** o **BCP Bolivia**, extraer el nombre y monto, y enviarlos a un servidor.
 
 ## Compilación
 
@@ -9,7 +9,7 @@ Cada push a `main` compila el APK debug y ejecuta las pruebas del parser. Descar
 ## Instalación
 
 1. Instala el APK en un teléfono o emulador Android.
-2. Selecciona Yape o BCP Bolivia y el método de envío.
+2. Selecciona Al toque, Yape o BCP Bolivia y el método de envío.
 3. Completa los campos de la opción elegida y pulsa **Guardar configuración**.
 4. Pulsa **Activar acceso a notificaciones** y habilita el lector en Ajustes de Android.
 5. Para mejorar la continuidad, excluye la app de optimización de batería si el fabricante ofrece esa opción.
@@ -34,7 +34,7 @@ El cliente Java de SignalR usa WebSockets; el Hub y cualquier proxy deben admiti
 
 ## Patrones iniciales
 
-- Yape: `QR DE JOHN OLIV te envió Bs. 1.00`
+- Al toque: `JOHN O te abonó Bs. 1.00` (título: `Recibiste un pago`)\n- Yape: `QR DE JOHN OLIV te envió Bs. 1.00`
 - BCP: `Recibiste un pago QR por Bs. 1950.00 de ANEZ MERLIN RANDY`
 
-Los textos o etiquetas de las apps bancarias pueden cambiar; los mensajes que no coincidan se ignoran. El manifiesto consulta etiquetas de apps instaladas para reconocer Yape/BCP; publicar en Google Play requeriría justificar `QUERY_ALL_PACKAGES` según sus políticas.
+Los textos o etiquetas de las apps bancarias pueden cambiar; los mensajes que no coincidan se ignoran. El manifiesto consulta etiquetas de apps instaladas para reconocer Al toque/Yape/BCP; publicar en Google Play requeriría justificar `QUERY_ALL_PACKAGES` según sus políticas.
