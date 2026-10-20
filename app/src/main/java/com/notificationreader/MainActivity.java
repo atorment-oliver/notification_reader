@@ -39,7 +39,7 @@ public class MainActivity extends Activity {
         mode = spinner(new String[]{"API HTTPS (POST)", "SignalR"}); root.addView(mode);
 
         apiGroup = group(root);
-        label(apiGroup, "URL de la API (HTTPS)"); apiUrl = field("https://api.ejemplo.com/pagos", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI); apiGroup.addView(apiUrl);
+        label(apiGroup, "URL de la API (HTTPS o API local del emulador)"); apiUrl = field("http://10.0.2.2:5098/api/credits", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI); apiGroup.addView(apiUrl);
         label(apiGroup, "Usuario de la API"); apiUser = field("", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD); apiGroup.addView(apiUser);
         label(apiGroup, "Contraseña de la API"); apiPassword = field("Contraseña", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD); apiGroup.addView(apiPassword);
 
@@ -92,13 +92,20 @@ public class MainActivity extends Activity {
         try { URI u = URI.create(value); return "https".equalsIgnoreCase(u.getScheme()) && u.getHost() != null; }
         catch (Exception e) { return false; }
     }
+    private boolean apiUrlAllowed(String value) {
+        try {
+            URI u = URI.create(value);
+            if ("https".equalsIgnoreCase(u.getScheme())) return u.getHost() != null;
+            return "http".equalsIgnoreCase(u.getScheme()) && "10.0.2.2".equals(u.getHost()) && u.getPort() == 5098;
+        } catch (Exception e) { return false; }
+    }
     private void save() {
         try {
             if (mode.getSelectedItemPosition() == 0) {
                 String endpoint = apiUrl.getText().toString().trim();
                 String username = apiUser.getText().toString().trim();
                 String password = apiPassword.getText().toString(); if (password.isEmpty()) password = store.apiPassword();
-                if (!httpsUrl(endpoint) || username.isEmpty() || password.isEmpty()) throw new IllegalArgumentException("Completa la URL HTTPS, usuario y contraseña de la API.");
+                if (!apiUrlAllowed(endpoint) || username.isEmpty() || password.isEmpty()) throw new IllegalArgumentException("Usa una URL HTTPS o http://10.0.2.2:5098/api/credits; completa usuario y contraseña.");
                 store.saveApi(bankValue(), endpoint, username, password);
                 apiPassword.setText(""); apiPassword.setHint("Guardada; escribe solo para cambiarla");
             } else {
