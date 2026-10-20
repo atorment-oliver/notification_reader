@@ -57,7 +57,7 @@ public class BankNotificationListener extends NotificationListenerService {
             if (endpoint.isEmpty() || apiUser.isEmpty() || apiPassword.isEmpty()) { store.status("Pago detectado, pero falta completar la configuración de la API."); return; }
             if (!rememberIfNew(key)) return;
             store.status("Pago detectado; enviando a la API…");
-            executor.execute(() -> sendWithRetry(endpoint, apiUser, apiPassword, sender, amount, stableKey));
+            executor.execute(() -> sendWithRetry(endpoint, apiUser, apiPassword, sender, bank, amount, stableKey));
         }
     }
 
@@ -84,17 +84,17 @@ public class BankNotificationListener extends NotificationListenerService {
         return true;
     }
 
-    private void sendWithRetry(String endpoint, String username, String password, String sender, java.math.BigDecimal amount, String key) {
+    private void sendWithRetry(String endpoint, String username, String password, String sender, String application, java.math.BigDecimal amount, String key) {
         for (int attempt = 0; attempt < 3; attempt++) {
-            HttpsURLConnection connection = null;
+            java.net.HttpURLConnection connection = null;
             try {
-                connection = (HttpsURLConnection) new URL(endpoint).openConnection();
+                connection = (java.net.HttpURLConnection) new URL(endpoint).openConnection();
                 connection.setRequestMethod("POST"); connection.setConnectTimeout(12000); connection.setReadTimeout(12000); connection.setDoOutput(true);
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
                 String token = Base64.encodeToString((username + ":" + password).getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
                 connection.setRequestProperty("Authorization", "Basic " + token);
                 connection.setRequestProperty("Idempotency-Key", sha256(key));
-                JSONObject json = new JSONObject(); json.put("user", sender); json.put("amount", amount);
+                JSONObject json = new JSONObject(); json.put("user", sender); json.put("application", application); json.put("amount", amount);
                 byte[] data = json.toString().getBytes(StandardCharsets.UTF_8);
                 try (OutputStream out = connection.getOutputStream()) { out.write(data); }
                 int code = connection.getResponseCode();
