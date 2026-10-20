@@ -36,7 +36,7 @@ public class MainActivity extends Activity {
         label(root, "Aplicación bancaria");
         bank = spinner(new String[]{"Yape", "BCP Bolivia", "Al toque (altoke)"}); root.addView(bank);
         label(root, "Método de envío");
-        mode = spinner(new String[]{"API HTTPS (POST)", "SignalR"}); root.addView(mode);
+        mode = spinner(new String[]{"API local o HTTPS (POST)", "SignalR"}); root.addView(mode);
 
         apiGroup = group(root);
         label(apiGroup, "URL de la API (HTTPS o API local del emulador)"); apiUrl = field("http://10.0.2.2:5098/api/credits", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI); apiGroup.addView(apiUrl);
