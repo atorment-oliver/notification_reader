@@ -9,7 +9,7 @@ import java.util.regex.Pattern;
 public final class NotificationParser {
     private static final Pattern YAPE = Pattern.compile("(?i)QR\\s+DE\\s+(.+?)\\s+te\\s+envió\\s+(?:Bs\\.?\\s*)?([0-9][0-9.,]*)");
     private static final Pattern BCP = Pattern.compile("(?i)por\\s+(?:Bs\\.?\\s*)?([0-9][0-9.,]*)\\s+de\\s+(.+)$");
-    private static final Pattern ALTOQUE = Pattern.compile("(?i)^(.+?)\\s+te\\s+abon[oó]\\s+(?:Bs\\.?\\s*)?([0-9][0-9.,]*)\\s*$");
+    private static final Pattern ALTOKE = Pattern.compile("(?i)^(.+?)\\s+te\\s+abon[oó]\\s+(?:Bs\\.?\\s*)?([0-9][0-9.,]*)\\s*$");
     private NotificationParser() {}
 
     public static Payment parse(String bank, String title, String body) {
@@ -18,10 +18,10 @@ public final class NotificationParser {
         Matcher m;
         String name;
         String rawAmount;
-        if ("ALTOQUE".equals(bank)) {
+        if ("ALTOKE".equals(bank)) {
             // altoke uses "Recibiste un pago" as title; payer and amount are in the body.
             String candidate = notificationBody.isEmpty() ? notificationTitle : notificationBody;
-            m = ALTOQUE.matcher(candidate);
+            m = ALTOKE.matcher(candidate);
             if (!m.find()) return null;
             name = m.group(1);
             rawAmount = m.group(2);
