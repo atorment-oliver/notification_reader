@@ -102,7 +102,12 @@ public class BankNotificationListener extends NotificationListenerService {
                 try (OutputStream out = connection.getOutputStream()) { out.write(data); }
                 int code = connection.getResponseCode();
                 if (code >= 200 && code < 300) { store.status("Pago enviado correctamente (HTTP " + code + ")."); store.debugLog("API respondió HTTP " + code + "; envío confirmado."); return; }
-                store.status("La API respondió HTTP " + code + ". Se reintentará."); store.debugLog("API respondió HTTP " + code + "; se reintentará.");
+                String errorBody = "";
+                try (java.io.InputStream errorStream = connection.getErrorStream()) {
+                    if (errorStream != null) errorBody = new String(errorStream.readAllBytes(), StandardCharsets.UTF_8).replace("\\n", " ").replace("\\r", " ");
+                } catch (Exception ignored) { }
+                store.status("La API respondió HTTP " + code + ". Se reintentará.");
+                store.debugLog("API respondió HTTP " + code + (errorBody.isEmpty() ? "" : "; detalle=" + errorBody) + "; se reintentará.");
             } catch (Exception e) {
                 store.status("No se pudo contactar la API. Se reintentará.");
                 store.debugLog("Error de conexión con API; intento " + (attempt + 1) + ": " + e.getClass().getSimpleName() + ".");
