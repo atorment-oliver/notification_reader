@@ -35,7 +35,7 @@ public class MainActivity extends Activity {
         TextView intro = new TextView(this); intro.setText("Selecciona la banca y el medio por el que se enviarán los pagos detectados."); intro.setTextSize(15); intro.setPadding(0,dp(8),0,dp(18)); root.addView(intro);
 
         label(root, "Aplicación bancaria");
-        bank = spinner(new String[]{"Yape", "BCP Bolivia", "Al toque (altoke)"}); root.addView(bank);
+        bank = spinner(new String[]{"Yape", "BCP Bolivia", "Al Toke (altoke)"}); root.addView(bank);
         label(root, "Método de envío");
         mode = spinner(new String[]{"API local o HTTPS (POST)", "SignalR"}); root.addView(mode);
 
