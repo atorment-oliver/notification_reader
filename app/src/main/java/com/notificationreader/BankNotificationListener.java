@@ -30,7 +30,7 @@ public class BankNotificationListener extends NotificationListenerService {
         String bank = store.bank();
         String appLabel = appLabel(sbn.getPackageName());
         store.debugLog("Notificación recibida; app=" + appLabel + "; paquete=" + sbn.getPackageName() + "; banca configurada=" + bank);
-        if (!matchesBank(bank, appLabel, sbn.getPackageName())) { store.debugLog("Ignorada: no corresponde a la banca seleccionada."); return; }
+        if (!matchesBank(bank, appLabel, sbn.getPackageName())) { store.debugLog("Ignorada: la notificación del paquete " + sbn.getPackageName() + " no corresponde a la app bancaria seleccionada."); return; }
         Notification n = sbn.getNotification();
         Bundle extras = n == null ? null : n.extras;
         if (extras == null) { store.debugLog("Coincide con la banca, pero no contiene texto legible."); return; }
@@ -71,7 +71,7 @@ public class BankNotificationListener extends NotificationListenerService {
     private boolean matchesBank(String selected, String label, String pkg) {
         String haystack = (label + " " + pkg).toLowerCase(java.util.Locale.ROOT);
         if ("BCP".equals(selected)) return haystack.contains("bcp");
-        if ("ALTOQUE".equals(selected)) return haystack.contains("altoke") || haystack.contains("al toque");
+        if ("ALTOKE".equals(selected)) return haystack.contains("altoke") || haystack.contains("al toque");
         return haystack.contains("yape");
     }
     private String text(CharSequence cs) { return cs == null ? "" : cs.toString().trim(); }
