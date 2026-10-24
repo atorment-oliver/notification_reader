@@ -6,6 +6,14 @@ import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import android.util.Base64;
 import java.nio.ByteBuffer;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 import javax.crypto.Cipher;
@@ -24,6 +32,8 @@ final class ConfigStore {
     static final String HUB_AUTH = "hub_auth";
     static final String HUB_USER = "hub_user";
     static final String STATUS = "status";
+    static final String DEBUG_LOGS = "debug_logs_enabled";
+    private static final String LOG_FILE = "notification_reader.log";
     private static final String API_PASSWORD = "api_password_encrypted";
     private static final String HUB_SECRET = "hub_secret_encrypted";
     private static final String ALIAS = "notification_reader_key_v1";
@@ -47,6 +57,27 @@ final class ConfigStore {
     void saveSignalR(String bank, String url, String method, String auth, String user, String secret) throws Exception {
         prefs.edit().putString(BANK, bank).putString(MODE, "SIGNALR").putString(HUB_URL, url).putString(HUB_METHOD, method)
                 .putString(HUB_AUTH, auth).putString(HUB_USER, user).putString(HUB_SECRET, encrypt(secret)).apply();
+    }
+    boolean debugLogsEnabled() { return prefs.getBoolean(DEBUG_LOGS, false); }
+    void setDebugLogsEnabled(boolean enabled) { prefs.edit().putBoolean(DEBUG_LOGS, enabled).apply(); }
+    synchronized void debugLog(String message) {
+        if (!debugLogsEnabled()) return;
+        File file = new File(prefsContext.getFilesDir(), LOG_FILE);
+        try (FileWriter writer = new FileWriter(file, true)) {
+            String timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
+            writer.write(timestamp + " | " + message.replace("\\n", " ") + System.lineSeparator());
+        } catch (IOException ignored) { }
+    }
+    synchronized String readDebugLog() {
+        File file = new File(prefsContext.getFilesDir(), LOG_FILE);
+        if (!file.exists()) return "Todavía no hay registros.";
+        StringBuilder result = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String line; java.util.ArrayDeque<String> lines = new java.util.ArrayDeque<>();
+            while ((line = reader.readLine()) != null) { lines.addLast(line); if (lines.size() > 80) lines.removeFirst(); }
+            for (String item : lines) result.append(item).append("\\n");
+        } catch (IOException e) { return "No se pudieron leer los registros."; }
+        return result.length() == 0 ? "Todavía no hay registros." : result.toString();
     }
     void status(String s) { prefs.edit().putString(STATUS, s).apply(); }
     String status() { return prefs.getString(STATUS, "Sin actividad todavía."); }
