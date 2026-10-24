@@ -38,8 +38,9 @@ final class ConfigStore {
     private static final String HUB_SECRET = "hub_secret_encrypted";
     private static final String ALIAS = "notification_reader_key_v1";
     private final SharedPreferences prefs;
+    private final Context prefsContext;
 
-    ConfigStore(Context c) { prefs = c.getSharedPreferences(PREF, Context.MODE_PRIVATE); }
+    ConfigStore(Context c) { prefsContext = c.getApplicationContext(); prefs = c.getSharedPreferences(PREF, Context.MODE_PRIVATE); }
     String bank() { return prefs.getString(BANK, "YAPE"); }
     String mode() { return prefs.getString(MODE, "API"); }
     String apiUrl() { return prefs.getString(API_URL, ""); }
@@ -65,7 +66,7 @@ final class ConfigStore {
         File file = new File(prefsContext.getFilesDir(), LOG_FILE);
         try (FileWriter writer = new FileWriter(file, true)) {
             String timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
-            writer.write(timestamp + " | " + message.replace("\\n", " ") + System.lineSeparator());
+            writer.write(timestamp + " | " + message.replace("\n", " ") + System.lineSeparator());
         } catch (IOException ignored) { }
     }
     synchronized String readDebugLog() {
@@ -75,7 +76,7 @@ final class ConfigStore {
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             String line; java.util.ArrayDeque<String> lines = new java.util.ArrayDeque<>();
             while ((line = reader.readLine()) != null) { lines.addLast(line); if (lines.size() > 80) lines.removeFirst(); }
-            for (String item : lines) result.append(item).append("\\n");
+            for (String item : lines) result.append(item).append("\n");
         } catch (IOException e) { return "No se pudieron leer los registros."; }
         return result.length() == 0 ? "Todavía no hay registros." : result.toString();
     }
