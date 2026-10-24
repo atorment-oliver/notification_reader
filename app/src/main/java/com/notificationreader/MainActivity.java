@@ -15,7 +15,8 @@ public class MainActivity extends Activity {
     private Spinner bank, mode, hubAuth;
     private EditText apiUrl, apiUser, apiPassword, hubUrl, hubMethod, hubUser, hubSecret;
     private LinearLayout apiGroup, signalRGroup, hubUserRow, hubSecretRow;
-    private TextView status;
+    private TextView status, debugOutput;
+    private Switch debugSwitch;
     private String loadedHubAuth = "BASIC";
 
     @Override public void onCreate(Bundle state) {
@@ -57,8 +58,14 @@ public class MainActivity extends Activity {
         Button save = new Button(this); save.setText("Guardar configuración"); root.addView(save); save.setOnClickListener(v -> save());
         Button access = new Button(this); access.setText("Activar acceso a notificaciones"); root.addView(access);
         access.setOnClickListener(v -> startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)));
+        debugSwitch = new Switch(this); debugSwitch.setText("Registrar diagnóstico de notificaciones y API"); debugSwitch.setChecked(store.debugLogsEnabled()); root.addView(debugSwitch);
+        debugSwitch.setOnCheckedChangeListener((button, checked) -> { store.setDebugLogsEnabled(checked); if (checked) store.debugLog("Registro de diagnóstico activado."); refreshDebugLog(); });
+        Button refreshLogs = new Button(this); refreshLogs.setText("Actualizar diagnóstico"); root.addView(refreshLogs);
+        debugOutput = new TextView(this); debugOutput.setTextSize(12); debugOutput.setTextIsSelectable(true); debugOutput.setPadding(dp(8), dp(8), dp(8), dp(8)); root.addView(debugOutput);
+        refreshLogs.setOnClickListener(v -> refreshDebugLog());
         status = new TextView(this); status.setTextSize(14); status.setPadding(0, dp(18), 0, dp(8)); root.addView(status);
         TextView note = new TextView(this); note.setText("Mantén habilitado el acceso a notificaciones. Android y algunos fabricantes pueden pausar la app por ahorro de batería; exclúyela de esas restricciones para mejorar la continuidad."); note.setTextSize(13); root.addView(note);
+        refreshDebugLog();
     }
 
     private LinearLayout group(LinearLayout parent) { LinearLayout g = new LinearLayout(this); g.setOrientation(LinearLayout.VERTICAL); parent.addView(g); return g; }
@@ -130,6 +137,7 @@ public class MainActivity extends Activity {
             Toast.makeText(this, "No se pudo guardar la configuración", Toast.LENGTH_LONG).show();
         }
     }
+    private void refreshDebugLog() { if (debugOutput != null) debugOutput.setText(store.readDebugLog()); }
     private void refreshStatus() {
         boolean enabled = false;
         try {
@@ -138,7 +146,7 @@ public class MainActivity extends Activity {
         } catch (Exception ignored) {}
         status.setText((enabled ? "Acceso a notificaciones: ACTIVADO\n" : "Acceso a notificaciones: DESACTIVADO\n") + store.status());
     }
-    @Override protected void onResume() { super.onResume(); if (status != null) refreshStatus(); }
+    @Override protected void onResume() { super.onResume(); if (status != null) refreshStatus(); refreshDebugLog(); }
 
     private static class SimpleSelection implements AdapterView.OnItemSelectedListener {
         private final Runnable onSelect;
