@@ -22,8 +22,8 @@ public class BankNotificationListener extends NotificationListenerService {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private ConfigStore store;
     @Override public void onCreate() { super.onCreate(); store = new ConfigStore(this); }
-    @Override public void onListenerConnected() { super.onListenerConnected(); store.status("Escuchando notificaciones seleccionadas."); }
-    @Override public void onListenerDisconnected() { super.onListenerDisconnected(); store.status("Android desconectó el lector. Revisa el acceso a notificaciones."); requestRebind(new android.content.ComponentName(this, BankNotificationListener.class)); }
+    @Override public void onListenerConnected() { super.onListenerConnected(); store.status("Escuchando notificaciones seleccionadas."); store.debugLog("Servicio lector conectado a Android."); }
+    @Override public void onListenerDisconnected() { super.onListenerDisconnected(); store.status("Android desconectó el lector. Revisa el acceso a notificaciones."); store.debugLog("Android desconectó el servicio lector; se solicita reconexión."); requestRebind(new android.content.ComponentName(this, BankNotificationListener.class)); }
 
     @Override public void onNotificationPosted(StatusBarNotification sbn) {
         if (sbn == null || store == null || getPackageName().equals(sbn.getPackageName())) return;
@@ -48,7 +48,7 @@ public class BankNotificationListener extends NotificationListenerService {
             String hubUrl = store.hubUrl(), method = store.hubMethod(), auth = store.hubAuth();
             String hubUser = store.hubUser(), hubSecret = store.hubSecret();
             if (hubUrl.isEmpty() || method.isEmpty() || ("BASIC".equals(auth) && (hubUser.isEmpty() || hubSecret.isEmpty())) || ("BEARER".equals(auth) && hubSecret.isEmpty())) {
-                store.status("Pago detectado, pero falta completar la configuración SignalR."); return;
+                store.status("Pago detectado, pero falta completar la configuración SignalR."); store.debugLog("Envío detenido: falta configuración SignalR."); return;
             }
             if (!rememberIfNew(key)) { store.debugLog("Evento duplicado; no se vuelve a enviar."); return; }
             store.status("Pago detectado; conectando con SignalR…");
@@ -57,7 +57,7 @@ public class BankNotificationListener extends NotificationListenerService {
         } else {
             String endpoint = store.apiUrl(), apiUser = store.apiUser(), apiPassword = store.apiPassword();
             if (endpoint.isEmpty() || apiUser.isEmpty() || apiPassword.isEmpty()) { store.status("Pago detectado, pero falta completar la configuración de la API."); store.debugLog("Envío detenido: falta URL, usuario o contraseña de la API."); return; }
-            if (!rememberIfNew(key)) return;
+            if (!rememberIfNew(key)) { store.debugLog("Evento duplicado; no se vuelve a enviar."); return; }
             store.status("Pago detectado; enviando a la API…");
             store.debugLog("Envío iniciado a la API; destino=" + endpoint + ".");
             executor.execute(() -> sendWithRetry(endpoint, apiUser, apiPassword, sender, bank, amount, stableKey));
