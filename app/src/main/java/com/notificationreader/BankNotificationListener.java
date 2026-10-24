@@ -29,15 +29,17 @@ public class BankNotificationListener extends NotificationListenerService {
         if (sbn == null || store == null || getPackageName().equals(sbn.getPackageName())) return;
         String bank = store.bank();
         String appLabel = appLabel(sbn.getPackageName());
-        if (!matchesBank(bank, appLabel, sbn.getPackageName())) return;
+        store.debugLog("Notificación recibida; app=" + appLabel + "; paquete=" + sbn.getPackageName() + "; banca configurada=" + bank);
+        if (!matchesBank(bank, appLabel, sbn.getPackageName())) { store.debugLog("Ignorada: no corresponde a la banca seleccionada."); return; }
         Notification n = sbn.getNotification();
         Bundle extras = n == null ? null : n.extras;
-        if (extras == null) return;
+        if (extras == null) { store.debugLog("Coincide con la banca, pero no contiene texto legible."); return; }
         String title = text(extras.getCharSequence(Notification.EXTRA_TITLE));
         String body = text(extras.getCharSequence(Notification.EXTRA_BIG_TEXT));
         if (body.isEmpty()) body = text(extras.getCharSequence(Notification.EXTRA_TEXT));
         NotificationParser.Payment payment = NotificationParser.parse(bank, title, body);
-        if (payment == null) return;
+        if (payment == null) { store.debugLog("Notificación de la banca recibida, pero el formato no coincide con un pago reconocido."); return; }
+        store.debugLog("Pago reconocido; usuario y monto extraídos (valores omitidos del registro por privacidad).");
         String key = sbn.getPackageName() + ":" + sbn.getId() + ":" + String.valueOf(sbn.getTag()) + ":" + sbn.getPostTime();
         String deliveryMode = store.mode();
         final String sender = payment.user, stableKey = key;
@@ -48,14 +50,16 @@ public class BankNotificationListener extends NotificationListenerService {
             if (hubUrl.isEmpty() || method.isEmpty() || ("BASIC".equals(auth) && (hubUser.isEmpty() || hubSecret.isEmpty())) || ("BEARER".equals(auth) && hubSecret.isEmpty())) {
                 store.status("Pago detectado, pero falta completar la configuración SignalR."); return;
             }
-            if (!rememberIfNew(key)) return;
+            if (!rememberIfNew(key)) { store.debugLog("Evento duplicado; no se vuelve a enviar."); return; }
             store.status("Pago detectado; conectando con SignalR…");
+            store.debugLog("Envío iniciado por SignalR; método=" + method + ".");
             executor.execute(() -> sendSignalRWithRetry(hubUrl, method, auth, hubUser, hubSecret, sender, amount, key));
         } else {
             String endpoint = store.apiUrl(), apiUser = store.apiUser(), apiPassword = store.apiPassword();
-            if (endpoint.isEmpty() || apiUser.isEmpty() || apiPassword.isEmpty()) { store.status("Pago detectado, pero falta completar la configuración de la API."); return; }
+            if (endpoint.isEmpty() || apiUser.isEmpty() || apiPassword.isEmpty()) { store.status("Pago detectado, pero falta completar la configuración de la API."); store.debugLog("Envío detenido: falta URL, usuario o contraseña de la API."); return; }
             if (!rememberIfNew(key)) return;
             store.status("Pago detectado; enviando a la API…");
+            store.debugLog("Envío iniciado a la API; destino=" + endpoint + ".");
             executor.execute(() -> sendWithRetry(endpoint, apiUser, apiPassword, sender, bank, amount, stableKey));
         }
     }
@@ -97,14 +101,16 @@ public class BankNotificationListener extends NotificationListenerService {
                 byte[] data = json.toString().getBytes(StandardCharsets.UTF_8);
                 try (OutputStream out = connection.getOutputStream()) { out.write(data); }
                 int code = connection.getResponseCode();
-                if (code >= 200 && code < 300) { store.status("Pago enviado correctamente (HTTP " + code + ")."); return; }
-                store.status("La API respondió HTTP " + code + ". Se reintentará.");
+                if (code >= 200 && code < 300) { store.status("Pago enviado correctamente (HTTP " + code + ")."); store.debugLog("API respondió HTTP " + code + "; envío confirmado."); return; }
+                store.status("La API respondió HTTP " + code + ". Se reintentará."); store.debugLog("API respondió HTTP " + code + "; se reintentará.");
             } catch (Exception e) {
                 store.status("No se pudo contactar la API. Se reintentará.");
+                store.debugLog("Error de conexión con API; intento " + (attempt + 1) + ": " + e.getClass().getSimpleName() + ".");
             } finally { if (connection != null) connection.disconnect(); }
             if (attempt < 2) try { Thread.sleep(1000L << attempt); } catch (InterruptedException e) { Thread.currentThread().interrupt(); return; }
         }
         store.status("No se pudo enviar después de 3 intentos. Una nueva notificación podrá reintentarlo.");
+        store.debugLog("API sin confirmación después de 3 intentos.");
     }
 
     private void sendSignalRWithRetry(String endpoint, String method, String auth, String username, String secret, String sender, java.math.BigDecimal amount, String key) {
@@ -125,15 +131,18 @@ public class BankNotificationListener extends NotificationListenerService {
                 // Contract: the Hub method accepts (string user, decimal amount), in that order.
                 hub.invoke(method, new Object[]{sender, amount}).blockingAwait();
                 store.status("Pago enviado correctamente por SignalR.");
+                store.debugLog("SignalR confirmó la invocación del método.");
                 return;
             } catch (Exception e) {
                 store.status("SignalR no confirmó el pago. Se reintentará.");
+                store.debugLog("Error SignalR; intento " + (attempt + 1) + ": " + e.getClass().getSimpleName() + ".");
             } finally {
                 if (hub != null) try { hub.close(); } catch (Exception ignored) {}
             }
             if (attempt < 2) try { Thread.sleep(1000L << attempt); } catch (InterruptedException e) { Thread.currentThread().interrupt(); return; }
         }
         store.status("SignalR no pudo enviar después de 3 intentos. Revisa la URL, método y autenticación del Hub.");
+        store.debugLog("SignalR sin confirmación después de 3 intentos.");
     }
     private String sha256(String value) throws Exception {
         byte[] digest = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
