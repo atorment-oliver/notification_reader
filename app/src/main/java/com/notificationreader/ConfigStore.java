@@ -41,7 +41,7 @@ final class ConfigStore {
     private final Context prefsContext;
 
     ConfigStore(Context c) { prefsContext = c.getApplicationContext(); prefs = c.getSharedPreferences(PREF, Context.MODE_PRIVATE); }
-    String bank() { return prefs.getString(BANK, "YAPE"); }
+    String bank() { String value = prefs.getString(BANK, "YAPE"); return "ALTOQUE".equals(value) ? "ALTOKE" : value; }
     String mode() { return prefs.getString(MODE, "API"); }
     String apiUrl() { return prefs.getString(API_URL, ""); }
     String apiUser() { return prefs.getString(API_USER, ""); }
