@@ -75,7 +75,7 @@ public class MainActivity extends Activity {
     private int dp(int n) { return (int)(n * getResources().getDisplayMetrics().density + .5f); }
 
     private void load() {
-        bank.setSelection("BCP".equals(store.bank()) ? 1 : "ALTOQUE".equals(store.bank()) ? 2 : 0);
+        bank.setSelection("BCP".equals(store.bank()) ? 1 : "ALTOKE".equals(store.bank()) ? 2 : 0);
         mode.setSelection("SIGNALR".equals(store.mode()) ? 1 : 0);
         apiUrl.setText(store.apiUrl()); apiUser.setText(store.apiUser());
         apiPassword.setHint(store.apiPassword().isEmpty() ? "Contraseña" : "Guardada; escribe solo para cambiarla");
@@ -94,7 +94,7 @@ public class MainActivity extends Activity {
         if (hubUserRow != null) hubUserRow.setVisibility(auth == 0 ? View.VISIBLE : View.GONE);
         if (hubSecretRow != null) hubSecretRow.setVisibility(auth == 2 ? View.GONE : View.VISIBLE);
     }
-    private String bankValue() { int selected = bank.getSelectedItemPosition(); return selected == 1 ? "BCP" : selected == 2 ? "ALTOQUE" : "YAPE"; }
+    private String bankValue() { int selected = bank.getSelectedItemPosition(); return selected == 1 ? "BCP" : selected == 2 ? "ALTOKE" : "YAPE"; }
     private boolean httpsUrl(String value) {
         try { URI u = URI.create(value); return "https".equalsIgnoreCase(u.getScheme()) && u.getHost() != null; }
         catch (Exception e) { return false; }
