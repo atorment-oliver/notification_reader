@@ -60,7 +60,7 @@ public class BankNotificationListener extends NotificationListenerService {
             if (!rememberIfNew(key)) { store.debugLog("Evento duplicado; no se vuelve a enviar."); return; }
             store.status("Pago detectado; enviando a la API…");
             store.debugLog("Envío iniciado a la API; destino=" + endpoint + ".");
-            executor.execute(() -> sendWithRetry(endpoint, apiUser, apiPassword, sender, bank, amount, stableKey));
+            executor.execute(() -> sendOnce(endpoint, apiUser, apiPassword, sender, bank, amount, stableKey));
         }
     }
 
@@ -87,40 +87,63 @@ public class BankNotificationListener extends NotificationListenerService {
         return true;
     }
 
-    private void sendWithRetry(String endpoint, String username, String password, String sender, String application, java.math.BigDecimal amount, String key) {
-        for (int attempt = 0; attempt < 3; attempt++) {
-            java.net.HttpURLConnection connection = null;
-            try {
-                connection = (java.net.HttpURLConnection) new URL(endpoint).openConnection();
-                connection.setRequestMethod("POST"); connection.setConnectTimeout(12000); connection.setReadTimeout(12000); connection.setDoOutput(true);
-                connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
-                String token = Base64.encodeToString((username + ":" + password).getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
-                connection.setRequestProperty("Authorization", "Basic " + token);
-                connection.setRequestProperty("Idempotency-Key", sha256(key));
-                JSONObject json = new JSONObject(); json.put("user", sender); json.put("application", application); json.put("amount", amount);
-                byte[] data = json.toString().getBytes(StandardCharsets.UTF_8);
-                try (OutputStream out = connection.getOutputStream()) { out.write(data); }
-                int code = connection.getResponseCode();
-                if (code >= 200 && code < 300) { store.status("Pago enviado correctamente (HTTP " + code + ")."); store.debugLog("API respondió HTTP " + code + "; envío confirmado."); return; }
-                String errorBody = "";
-                try (java.io.InputStream errorStream = connection.getErrorStream()) {
-                    if (errorStream != null) {
-                        java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(errorStream, StandardCharsets.UTF_8));
-                        StringBuilder body = new StringBuilder(); String line;
-                        while ((line = reader.readLine()) != null) body.append(line).append(" ");
-                        errorBody = body.toString().trim();
-                    }
-                } catch (Exception ignored) { }
-                store.status("La API respondió HTTP " + code + ". Se reintentará.");
-                store.debugLog("API respondió HTTP " + code + (errorBody.isEmpty() ? "" : "; detalle=" + errorBody) + "; se reintentará.");
-            } catch (Exception e) {
-                store.status("No se pudo contactar la API. Se reintentará.");
-                store.debugLog("Error de conexión con API; intento " + (attempt + 1) + ": " + e.getClass().getSimpleName() + ".");
-            } finally { if (connection != null) connection.disconnect(); }
-            if (attempt < 2) try { Thread.sleep(1000L << attempt); } catch (InterruptedException e) { Thread.currentThread().interrupt(); return; }
+    private void sendOnce(String endpoint, String username, String password, String sender, String application, java.math.BigDecimal amount, String key) {
+        java.net.HttpURLConnection connection = null;
+        try {
+            connection = (java.net.HttpURLConnection) new URL(endpoint).openConnection();
+            connection.setRequestMethod("POST");
+            connection.setConnectTimeout(12000);
+            connection.setReadTimeout(12000);
+            connection.setDoOutput(true);
+            connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+            String token = Base64.encodeToString((username + ":" + password).getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
+            connection.setRequestProperty("Authorization", "Basic " + token);
+            String idempotencyKey = sha256(key);
+            connection.setRequestProperty("Idempotency-Key", idempotencyKey);
+
+            JSONObject json = new JSONObject();
+            json.put("user", sender);
+            json.put("application", application);
+            json.put("amount", amount);
+            byte[] data = json.toString().getBytes(StandardCharsets.UTF_8);
+            try (OutputStream out = connection.getOutputStream()) { out.write(data); }
+
+            int code = connection.getResponseCode();
+            String responseBody = readResponseBody(connection, code);
+            if (code == 200) {
+                String transactionId = "";
+                try { transactionId = new JSONObject(responseBody).optString("transactionId", ""); }
+                catch (Exception ignored) { }
+                store.status("Pago enviado correctamente (HTTP 200).");
+                store.debugLog("API confirmó HTTP 200" + (transactionId.isEmpty() ? "" : "; transacción=" + transactionId) + ".");
+                return;
+            }
+
+            store.status("La API no confirmó el pago (HTTP " + code + "). No se reintentará automáticamente; revisa el log de la API.");
+            store.debugLog("API respondió HTTP " + code + (responseBody.isEmpty() ? "" : "; detalle=" + responseBody) + "; clave de idempotencia=" + idempotencyKey + ". No se reintentará.");
+        } catch (Exception e) {
+            store.status("No se pudo confirmar el envío a la API. No se reintentará automáticamente; revisa la conexión y el log de la API.");
+            store.debugLog("Error de conexión con API en intento único; " + e.getClass().getSimpleName() + ". No se reintentará.");
+        } finally {
+            if (connection != null) connection.disconnect();
         }
-        store.status("No se pudo enviar después de 3 intentos. Una nueva notificación podrá reintentarlo.");
-        store.debugLog("API sin confirmación después de 3 intentos.");
+    }
+
+    private String readResponseBody(java.net.HttpURLConnection connection, int code) {
+        java.io.InputStream stream = null;
+        try {
+            stream = code >= 400 ? connection.getErrorStream() : connection.getInputStream();
+            if (stream == null) return "";
+            try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(stream, StandardCharsets.UTF_8))) {
+                StringBuilder body = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) body.append(line).append(' ');
+                return body.toString().trim();
+            }
+        } catch (Exception ignored) {
+            return "";
+        }
     }
 
     private void sendSignalRWithRetry(String endpoint, String method, String auth, String username, String secret, String sender, java.math.BigDecimal amount, String key) {
