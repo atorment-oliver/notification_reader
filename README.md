@@ -18,7 +18,7 @@ Android o el fabricante pueden pausar procesos por ahorro de batería; ninguna a
 
 ## Método: API HTTPS o API local del emulador
 
-Configura URL, usuario y contraseña. Para la API local del emulador usa `http://10.0.2.2:5098/api/credits`; el permiso HTTP queda limitado a esa IP y puerto. En servidores remotos usa HTTPS. El cuerpo JSON es `{"user":"...","application":"ALTOQUE","amount":1.00}` y las credenciales se envían como HTTP Basic Auth. Se envía `Idempotency-Key`; el servidor debe respetarla para evitar duplicados si la respuesta se pierde.
+Configura URL, usuario y contraseña. Para la API local del emulador usa `http://10.0.2.2:5098/api/credits`; el permiso HTTP queda limitado a esa IP y puerto. En servidores remotos usa HTTPS. El cuerpo JSON es `{"user":"...","application":"ALTOQUE","amount":1.00}` y las credenciales se envían como HTTP Basic Auth. Se envía `Idempotency-Key`, derivada de la identidad de la notificación, para que el API reconozca retransmisiones. Para pagos por API se realiza **un solo POST**, sin los tres reintentos automáticos; si no hay confirmación, revisa el log del API antes de repetir manualmente.
 
 ## Método: SignalR
 
