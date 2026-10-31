@@ -93,7 +93,7 @@ public class BankNotificationListener extends NotificationListenerService {
             connection = (java.net.HttpURLConnection) new URL(endpoint).openConnection();
             connection.setRequestMethod("POST");
             connection.setConnectTimeout(12000);
-            connection.setReadTimeout(12000);
+            connection.setReadTimeout(60000);
             connection.setDoOutput(true);
             connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
             String token = Base64.encodeToString((username + ":" + password).getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
